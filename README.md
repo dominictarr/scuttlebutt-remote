@@ -1,7 +1,7 @@
-# 0
+# scuttlebutt-remote
 
-<img src=https://secure.travis-ci.org/Dominic Tarr/0.png?branch=master>
-
+connect to remote scuttlebutt collections. such as 
+[level-scuttlebutt](https://github.com/dominictarr/level-scuttlebutt).
 
 ## License
 
