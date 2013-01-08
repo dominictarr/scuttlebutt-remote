@@ -8,9 +8,17 @@
   },
   "dependencies": {
     "through": "~2.1",
-    "mux-demux": "~3.4"
+    "mux-demux": "~3.4",
+    "scuttlebutt-schema": "~1.1.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "tape": "~0.1.5",
+    "level-scuttlebutt": "~1.2.1",
+    "leveldb": "~0.7.1",
+    "rimraf": "~2.1.1",
+    "levelup": "~0.5.0",
+    "scuttlebutt": "~5.5.4"
+  },
   "scripts": {
     "test": "set -e; for t in test/*.js; do node $t; done"
   },
