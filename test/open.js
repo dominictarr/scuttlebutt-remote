@@ -8,7 +8,7 @@ var Remote  = require('..')
 
 var tape = require('tape')
 
-tape('remote open, local open', function (t) {
+tape('local open, remote open', function (t) {
   var path = '/tmp/test-scuttlebutt-remote'
   t.plan(2)
   rimraf(path, function () {
@@ -18,12 +18,7 @@ tape('remote open, local open', function (t) {
  
     var local  = Remote(schema).openDb(db)
     var remote = Remote(schema)
- 
-    var ls = local.createStream()
-    var rs = remote.createStream()
- 
-    ls.pipe(rs).pipe(ls)
- 
+
     local.open('test1', function (err, a) {
       if(err) t.fail(err)
  
@@ -37,6 +32,14 @@ tape('remote open, local open', function (t) {
         t.end()
       })
     })
+ 
+    var ls = local.createStream()
+    var rs = remote.createStream()
+
+    rs.on('data', console.log)
+    ls.on('data', console.log)
+
+    ls.pipe(rs).pipe(ls)
   })
 })
 
@@ -81,4 +84,42 @@ tape('parallel open', function (t) {
   })
 })
 
+tape('remote open, local open', function (t) {
+  var path = '/tmp/test-scuttlebutt-remote3'
+  t.plan(2)
+  rimraf(path, function () {
+    var db = levelup(path, {createIfMissing: true})
+    var schema = {test: Model}
+    LevelScuttlebutt(db, 'test', schema)
+ 
+    var local  = Remote(schema).openDb(db)
+    var remote = Remote(schema)
+
+    remote.open('test1', function (err, a) {
+      if(err) t.fail(err)
+ 
+      a.set('x', Math.random())
+      a.set('y', Math.random())
+      a.set('z', Math.random())
+ 
+      local.open('test1', function (err, b) {
+        t.notStrictEqual(a, b)
+        console.log(b.history())
+        t.deepEqual(b.history(), a.history())
+        t.end()
+      })
+    })
+
+    var local  = Remote(schema).openDb(db)
+    var remote = Remote(schema)
+ 
+    var ls = local.createStream()
+    var rs = remote.createStream()
+
+    rs.on('data', console.log)
+
+    ls.pipe(rs).pipe(ls)
+
+  })
+})
 
