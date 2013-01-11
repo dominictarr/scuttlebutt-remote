@@ -18,14 +18,6 @@ var Schema   = require('scuttlebutt-schema')
 
 //COMBINE into one stream object...
 
-/*
-var remote = create(db, schema)
-remote.createStream()
-
-remote.open(name, cb)
-remote.view(name).pipe(...)
-*/
-
 var remote = module.exports = function (schema) {
 
   schema = Schema(schema)
@@ -78,7 +70,8 @@ var remote = module.exports = function (schema) {
     //can I trust that?
 
     _open = function dbOpen () {
-      return db.scuttlebutt.open.apply(db.scuttlebutt, arguments)
+      var args = [].slice.call(arguments)
+      return db.scuttlebutt.open.apply(db.scuttlebutt, args)
     }
 
     _view = function dbView () {
@@ -97,15 +90,23 @@ var remote = module.exports = function (schema) {
     return this
   }
 
+  var clientStream = false
+
   emitter.createStream = function (isServer) {
+
+    //shoud add a check here that there is only one stream if in client mode.
+    //there can be multiple server streams, but never multiple client streams.
+
+    if(clientStream) throw new Error('only one connection allowed')
+    if(!db) clientStream = true
 
     var mx = MuxDemux(function (stream) {
       if(!db) return stream.error('cannot access database this end')
+
       //if(!db.isOpen())
       //  return stream.error('db is not open yet')
 
       if('string' === typeof stream.meta) {
-        var name = stream.meta.replace(/^doc-/, '')
         var ts = through().pause()
         //TODO. make mux-demux pause.
 
@@ -114,7 +115,7 @@ var remote = module.exports = function (schema) {
         //and then connect the stream to the client
         //so that the 'sync' event fires the right time,
         //and the open method works on the client too.
-        db.scuttlebutt(stream.meta, function (err, doc) {
+        emitter.open(stream.meta, function (err, doc) {
           ts.pipe(doc.createStream()).pipe(stream)
           ts.resume()
         })
@@ -142,6 +143,7 @@ var remote = module.exports = function (schema) {
       require('scuttlebutt-schema')
         .open(schema,
           function (name) {
+            //where is the messages going?
             return mx.createStream(''+name) //force to string.
           })
 
@@ -162,21 +164,24 @@ var remote = module.exports = function (schema) {
     //really, this is where the cache should be, not around db.scuttlebutt.open
     //will need the list of current scuttlebutts to reconnect with...
 
-    _open = function (name, cb) {
-      return db ? db.scuttlebutt.open(name, cb) : clientOpen(name, cb)
+    if(!db) {
+      process.nextTick(function () {
+        _open = clientOpen
+
+        //for about timed events, it will be possible to replay them in order...
+        //from the thing last recieved. for streams that update randomly that won't work,
+        //so you'll have to restream the whole thing when you reconnect.
+        //(best to let the user reconnect again, if that is what they want)
+
+        _view = clientView
+      })
     }
 
-    //for about timed events, it will be possible to replay them in order...
-    //from the thing last recieved. for streams that update randomly that won't work,
-    //so you'll have to restream the whole thing when you reconnect.
-    //(best to let the user reconnect again, if that is what they want)
+    mx.on('end', function () {
+      clientStream = false
+    })
 
-    _view = function () {
-      var view = db && db.scuttlebutt.view
-      return db ? view.apply(view, arguments) : clientView.apply(null, arguments)
-    }
-
-    ready()
+    process.nextTick(ready)
 
     return mx
   }
@@ -187,30 +192,3 @@ var remote = module.exports = function (schema) {
 //hmmm... so this function return a stream.
 //but, we'll have autonode...
 
-/*
-
-//SCRATCHPAD
-
-var db
-var autonode = Autonode(function (stream) {
-   stream.pipe(this.isServer ? remote(db) : remote(schema)).pipe(stream)
-}).connect(port)
-
-autonode.on('listening', function () {
-  //open the db,
-  levelup(path, function (err, db) {
-    autonode.emit('open', db)
-  })
-})
-
-//open is defered until either the database is opened
-
-autonode.on('connecting', function () {
-  //close the db
-  db && db.isOpen() && db.close(function (err) {
-    console.error(err)
-  })
-  db = null
-})
-
-*/
